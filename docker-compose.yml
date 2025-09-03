@@ -1,0 +1,131 @@
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - vendas-network
+
+  postgres-produtos:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: produtos_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_produtos_data:/var/lib/postgresql/data
+    networks:
+      - vendas-network
+
+  mongo-clientes:
+    image: mongo:6
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_clientes_data:/data/db
+    networks:
+      - vendas-network
+
+  mysql-vendas:
+    image: mysql:8
+    environment:
+      MYSQL_DATABASE: vendas_db
+      MYSQL_ROOT_PASSWORD: password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_vendas_data:/var/lib/mysql
+    networks:
+      - vendas-network
+
+  produtos-service:
+    build:
+      context: ./produtos-service
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3000"
+    depends_on:
+      - postgres-produtos
+      - redis
+    environment:
+      - NODE_ENV=production
+      - DB_HOST=postgres-produtos
+      - DB_PORT=5432
+      - DB_NAME=produtos_db
+      - DB_USER=postgres
+      - DB_PASS=password
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    networks:
+      - vendas-network
+
+  clientes-service:
+    build:
+      context: ./clientes-service
+      dockerfile: Dockerfile
+    ports:
+      - "3002:5000"
+    depends_on:
+      - mongo-clientes
+      - redis
+    environment:
+      - FLASK_ENV=production
+      - MONGO_HOST=mongo-clientes
+      - MONGO_PORT=27017
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    networks:
+      - vendas-network
+
+  vendas-service:
+    build:
+      context: ./vendas-service
+      dockerfile: Dockerfile
+    ports:
+      - "3003:8080"
+    depends_on:
+      - mysql-vendas
+      - redis
+      - produtos-service
+      - clientes-service
+    environment:
+      - ENV=production
+      - DB_HOST=mysql-vendas
+      - DB_PORT=3306
+      - DB_NAME=vendas_db
+      - DB_USER=root
+      - DB_PASS=password
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - PRODUTOS_SERVICE_URL=http://produtos-service:3000
+      - CLIENTES_SERVICE_URL=http://clientes-service:5000
+    networks:
+      - vendas-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    depends_on:
+      - produtos-service
+      - clientes-service
+      - vendas-service
+    environment:
+      - REACT_APP_PRODUTOS_API=http://localhost:3001
+      - REACT_APP_CLIENTES_API=http://localhost:3002
+      - REACT_APP_VENDAS_API=http://localhost:3003
+    networks:
+      - vendas-network
+
+networks:
+  vendas-network:
+    driver: bridge
+
+volumes:
+  postgres_produtos_data:
+  mongo_clientes_data:
+  mysql_vendas_data:
