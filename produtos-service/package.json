@@ -1,0 +1,19 @@
+{
+  "name": "produtos-service",
+  "version": "1.0.0",
+  "description": "Microserviço de Produtos",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "pg": "^8.8.0",
+    "redis": "^4.5.1",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.20"
+  }
+}
